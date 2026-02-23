@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Couples Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --rose: #c9566b;
+    --rose-light: #f2dde1;
+    --rose-dark: #8e2d40;
+    --cream: #fdf6f0;
+    --warm: #e8d5c4;
+    --text: #2c1f1f;
+    --muted: #8a6f6f;
+    --yes-color: #d4875a;
+    --no-color: #7a9caa;
+    --card-bg: #fff9f6;
+    --border: #e8c4c4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Lato', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+    background-image: radial-gradient(ellipse at 20% 20%, #fce8ec 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 80%, #e8eef5 0%, transparent 60%);
+  }
+
+  header {
+    background: var(--rose-dark);
+    color: white;
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 3px 15px rgba(142,45,64,0.3);
+  }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 1.8rem; letter-spacing: 1px; }
+  header p { font-size: 0.85rem; opacity: 0.8; font-weight: 300; }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    background: white;
+    border-bottom: 2px solid var(--border);
+    padding: 0 30px;
+  }
+  .tab-btn {
+    padding: 14px 28px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: 'Lato', sans-serif;
+    font-size: 0.95rem;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .tab-btn.active { color: var(--rose-dark); border-bottom-color: var(--rose); }
+
+  .tab-content { display: none; padding: 30px; max-width: 1100px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  /* CALENDAR VIEW */
+  .cal-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .cal-nav h2 { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--rose-dark); }
+  .nav-btn {
+    background: var(--rose-dark); color: white; border: none;
+    width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+    font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .nav-btn:hover { background: var(--rose); }
+
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-header { text-align: center; font-size: 0.75rem; font-weight: 700; color: var(--muted); letter-spacing: 1px; padding: 8px 0; text-transform: uppercase; }
+  .cal-day {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    min-height: 80px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .cal-day:hover { border-color: var(--rose); box-shadow: 0 3px 12px rgba(201,86,107,0.15); transform: translateY(-2px); }
+  .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+  .cal-day.empty:hover { transform: none; box-shadow: none; }
+  .cal-day.today { border-color: var(--rose); border-width: 2px; }
+  .cal-day.future { opacity: 0.4; cursor: not-allowed; }
+  .cal-day.future:hover { transform: none; box-shadow: none; }
+  .day-num { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .cal-day.today .day-num { color: var(--rose-dark); }
+  .day-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge-yes { background: #fde8d8; color: #a0502a; }
+  .badge-no { background: #d8e8f0; color: #2a5a70; }
+
+  /* BULK MODE */
+  .bulk-bar {
+    display: none; align-items: center; justify-content: space-between;
+    background: #2c1f1f; color: white;
+    padding: 12px 20px; border-radius: 10px; margin-bottom: 14px;
+  }
+  .bulk-bar.active { display: flex; }
+  .bulk-bar-left { font-size: 0.9rem; font-weight: 600; }
+  .bulk-bar-left span { color: #f9c06a; font-size: 1.15rem; margin-right: 6px; }
+  .bulk-bar-actions { display: flex; gap: 10px; }
+  .btn-bulk-log {
+    padding: 8px 18px; background: var(--rose); color: white;
+    border: none; border-radius: 7px; cursor: pointer;
+    font-family: "Lato", sans-serif; font-weight: 700; font-size: 0.85rem; transition: background 0.2s;
+  }
+  .btn-bulk-log:hover { background: var(--rose-dark); }
+  .btn-bulk-cancel {
+    padding: 8px 14px; background: rgba(255,255,255,0.15); color: white;
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 7px; cursor: pointer;
+    font-family: "Lato", sans-serif; font-size: 0.85rem; transition: background 0.2s;
+  }
+  .btn-bulk-cancel:hover { background: rgba(255,255,255,0.25); }
+  .btn-bulk-mode {
+    padding: 8px 16px; background: white; color: var(--rose-dark);
+    border: 2px solid var(--rose-dark); border-radius: 8px; cursor: pointer;
+    font-family: "Lato", sans-serif; font-size: 0.85rem; font-weight: 700;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-bulk-mode.on { background: var(--rose-dark); color: white; }
+  .btn-bulk-mode:hover { background: var(--rose-dark); color: white; }
+  .cal-day.bulk-selected {
+    border-color: var(--rose) !important; background: #fce8ec !important;
+    box-shadow: 0 0 0 3px rgba(201,86,107,0.25);
+  }
+  .cal-day.bulk-mode-on:not(.empty):not(.future) { cursor: crosshair; }
+  .select-check {
+    position: absolute; top: 5px; right: 5px; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--rose); color: white;
+    font-size: 0.65rem; display: flex; align-items: center; justify-content: center; font-weight: 900;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 100;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--cream);
+    border-radius: 16px;
+    padding: 32px;
+    width: 90%; max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal h3 { font-family: 'Playfair Display', serif; font-size: 1.4rem; color: var(--rose-dark); margin-bottom: 6px; }
+  .modal .date-label { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+
+  .question-block { margin-bottom: 22px; }
+  .question-block label { display: block; font-weight: 700; font-size: 0.9rem; color: var(--text); margin-bottom: 10px; letter-spacing: 0.3px; }
+
+  .toggle-group { display: flex; gap: 10px; }
+  .toggle-btn {
+    flex: 1; padding: 10px; border: 2px solid var(--border);
+    border-radius: 8px; background: white; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 0.9rem;
+    font-weight: 600; transition: all 0.2s; color: var(--muted);
+  }
+  .toggle-btn:hover { border-color: var(--rose); color: var(--rose); }
+  .toggle-btn.selected-yes { background: #fde8d8; border-color: var(--yes-color); color: #7a3a1a; }
+  .toggle-btn.selected-no { background: #d8e8f0; border-color: var(--no-color); color: #1a4a5a; }
+  .toggle-btn.selected-he { background: #e8f0ff; border-color: #5a7acc; color: #2a3a7a; }
+  .toggle-btn.selected-she { background: #ffe8f5; border-color: #cc5a88; color: #7a1a40; }
+
+  .sub-questions { margin-top: 14px; padding-left: 12px; border-left: 3px solid var(--rose-light); }
+  .sub-questions.hidden { display: none; }
+  .sub-questions label { font-weight: 400; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+
+  .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .btn-save {
+    flex: 1; padding: 12px; background: var(--rose-dark); color: white;
+    border: none; border-radius: 8px; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 0.95rem; font-weight: 700;
+    transition: background 0.2s; letter-spacing: 0.5px;
+  }
+  .btn-save:hover { background: var(--rose); }
+  .btn-cancel {
+    padding: 12px 20px; background: none; color: var(--muted);
+    border: 2px solid var(--border); border-radius: 8px; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 0.95rem; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-cancel:hover { border-color: var(--muted); }
+  .btn-clear {
+    padding: 12px 16px; background: none; color: #cc5555;
+    border: 2px solid #e5b5b5; border-radius: 8px; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 0.85rem; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-clear:hover { background: #ffeaea; }
+
+  /* STATS VIEW */
+  .stats-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .stats-nav h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--rose-dark); }
+  .stats-filters { display: flex; gap: 10px; align-items: center; }
+  .stats-filters select {
+    padding: 8px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; background: white; color: var(--text);
+    font-family: 'Lato', sans-serif; font-size: 0.9rem; cursor: pointer;
+    outline: none;
+  }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .stat-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    text-align: center;
+  }
+  .stat-card .stat-num { font-family: 'Playfair Display', serif; font-size: 2.4rem; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+  .stat-card .stat-label { font-size: 0.8rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-card.yes-card { border-color: #e8a880; }
+  .stat-card.yes-card .stat-num { color: var(--yes-color); }
+  .stat-card.no-card { border-color: #88aabb; }
+  .stat-card.no-card .stat-num { color: var(--no-color); }
+  .stat-card.he-card .stat-num { color: #5a7acc; }
+  .stat-card.she-card .stat-num { color: #cc5a88; }
+
+  .detail-section { background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  .detail-section h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .detail-section h3.yes-title { color: var(--yes-color); }
+  .detail-section h3.no-title { color: var(--no-color); }
+
+  .detail-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f5e8e8; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-row .dr-label { font-size: 0.9rem; color: var(--text); }
+  .detail-row .dr-val { font-size: 1.1rem; font-weight: 700; }
+  .detail-row .dr-pct { font-size: 0.8rem; color: var(--muted); margin-left: 8px; }
+
+  .bar-wrap { flex: 1; margin: 0 16px; height: 8px; background: var(--warm); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+  .bar-he { background: #5a7acc; }
+  .bar-she { background: #cc5a88; }
+  .bar-he-ref { background: #88aadd; }
+  .bar-she-ref { background: #dd88aa; }
+
+  .monthly-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
+  .month-chip {
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; font-size: 0.85rem;
+  }
+  .month-chip .mc-month { font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .month-chip .mc-yes { color: var(--yes-color); font-size: 0.8rem; }
+  .month-chip .mc-no { color: var(--no-color); font-size: 0.8rem; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .es-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state p { font-size: 1rem; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #2c1f1f; color: white; padding: 12px 24px; border-radius: 30px;
+    font-size: 0.9rem; font-weight: 600; z-index: 999;
+    transition: transform 0.3s ease, opacity 0.3s ease; opacity: 0; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* PIE CHARTS */
+  .charts-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .chart-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .chart-card h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; color: var(--rose-dark);
+    margin-bottom: 16px; text-align: center;
+  }
+  .chart-wrap { position: relative; width: 180px; height: 180px; }
+  .chart-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .legend-item span { margin-left: auto; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>💕 Couples Calendar</h1>
+    <p>Your private intimacy tracker</p>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('calendar')">📅 Calendar</button>
+  <button class="tab-btn" onclick="switchTab('stats')">📊 Statistics</button>
+</div>
+
+<div id="tab-calendar" class="tab-content active">
+  <div class="cal-nav">
+    <button class="nav-btn" onclick="changeMonth(-1)">&#8592;</button>
+    <h2 id="cal-title"></h2>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn-bulk-mode" id="bulk-mode-btn" onclick="toggleBulkMode()">✏️ Multi-Select</button>
+      <button class="nav-btn" onclick="changeMonth(1)">&#8594;</button>
+    </div>
+  </div>
+  <div class="bulk-bar" id="bulk-bar">
+    <div class="bulk-bar-left"><span id="bulk-count">0</span> days selected</div>
+    <div class="bulk-bar-actions">
+      <button class="btn-bulk-cancel" onclick="cancelBulk()">✕ Cancel</button>
+      <button class="btn-bulk-log" onclick="openBulkModal()">Log for Selected Days →</button>
+    </div>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+</div>
+
+<div id="tab-stats" class="tab-content">
+  <div class="stats-nav">
+    <h2>Statistics</h2>
+    <div class="stats-filters">
+      <select id="stat-year" onchange="renderStats()"></select>
+      <select id="stat-month" onchange="renderStats()">
+        <option value="all">All Year</option>
+        <option value="0">January</option><option value="1">February</option>
+        <option value="2">March</option><option value="3">April</option>
+        <option value="4">May</option><option value="5">June</option>
+        <option value="6">July</option><option value="7">August</option>
+        <option value="8">September</option><option value="9">October</option>
+        <option value="10">November</option><option value="11">December</option>
+      </select>
+    </div>
+  </div>
+  <div id="stats-content"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Log Intimacy</h3>
+    <div class="date-label" id="modal-date-label"></div>
+
+    <div class="question-block">
+      <label>Did you have sex?</label>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="btn-yes" onclick="selectHad('yes')">✅ Yes</button>
+        <button class="toggle-btn" id="btn-no" onclick="selectHad('no')">❌ No</button>
+      </div>
+    </div>
+
+    <!-- YES sub-questions -->
+    <div class="sub-questions hidden" id="sq-yes">
+      <label>Who initiated?</label>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="btn-he-init" onclick="selectInitiator('he')">👨 He initiated</button>
+        <button class="toggle-btn" id="btn-she-init" onclick="selectInitiator('she')">👩 She initiated</button>
+      </div>
+    </div>
+
+    <!-- NO sub-questions -->
+    <div class="sub-questions hidden" id="sq-no">
+      <label>What happened?</label>
+      <div class="toggle-group" style="flex-direction:column;">
+        <button class="toggle-btn" id="btn-he-ref" onclick="selectRefusal('he_refused')">👨 He initiated → She refused</button>
+        <button class="toggle-btn" id="btn-she-ref" onclick="selectRefusal('she_refused')">👩 She initiated → He refused</button>
+        <button class="toggle-btn" id="btn-neither" onclick="selectRefusal('neither')">💤 Neither initiated</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-clear" onclick="clearEntry()">Clear</button>
+      <button class="btn-save" onclick="saveEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'couples_cal_data';
+let bulkMode = false;
+let bulkSelected = new Set();
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+let editDate = null;
+let formState = { had: null, initiator: null, refusal: null };
+
+function getData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+function dateKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'stats') { populateStatFilters(); renderStats(); }
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '✅ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+renderCalendar();
+}
+
+function renderCalendar() {
+  document.getElementById('cal-title').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  DAYS.forEach(d => { const h = document.createElement('div'); h.className = 'cal-header'; h.textContent = d; grid.appendChild(h); });
+
+  const data = getData();
+  const today = new Date();
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const e = document.createElement('div'); e.className = 'cal-day empty'; grid.appendChild(e);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement('div');
+    const key = dateKey(currentYear, currentMonth, d);
+    const entry = data[key];
+    const isToday = today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === d;
+    const isFuture = new Date(currentYear, currentMonth, d) > today;
+    cell.className = 'cal-day' + (isToday ? ' today' : '') + (isFuture ? ' future' : '') + (bulkMode && !isFuture ? ' bulk-mode-on' : '') + (bulkSelected.has(key) ? ' bulk-selected' : '');
+    cell.innerHTML = `<div class="day-num">${d}</div>`;
+    if (entry) {
+      const badge = document.createElement('div');
+      badge.className = `day-badge ${entry.had === 'yes' ? 'badge-yes' : 'badge-no'}`;
+      badge.textContent = entry.had === 'yes' ? '💕 Yes' : '💔 No';
+      cell.appendChild(badge);
+    }
+    if (bulkSelected.has(key)) {
+      const chk = document.createElement('div');
+      chk.className = 'select-check'; chk.textContent = '✓';
+      cell.appendChild(chk);
+    }
+    if (!isFuture) {
+      cell.onclick = () => {
+        if (bulkMode) {
+          const key = dateKey(currentYear, currentMonth, d);
+          if (bulkSelected.has(key)) {
+            bulkSelected.delete(key);
+            cell.classList.remove('bulk-selected');
+            cell.querySelector('.select-check') && cell.querySelector('.select-check').remove();
+          } else {
+            bulkSelected.add(key);
+            cell.classList.add('bulk-selected');
+            const chk = document.createElement('div');
+            chk.className = 'select-check'; chk.textContent = '✓';
+            cell.appendChild(chk);
+          }
+          document.getElementById('bulk-count').textContent = bulkSelected.size;
+        } else {
+          openModal(currentYear, currentMonth, d);
+        }
+      };
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function openModal(y, m, d) {
+  editDate = { y, m, d };
+  const key = dateKey(y, m, d);
+  const entry = getData()[key] || {};
+  formState = { had: entry.had || null, initiator: entry.initiator || null, refusal: entry.refusal || null };
+  document.getElementById('modal-date-label').textContent = `${MONTHS[m]} ${d}, ${y}`;
+  applyFormState();
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+function applyFormState() {
+  // Reset all
+  ['btn-yes','btn-no','btn-he-init','btn-she-init','btn-he-ref','btn-she-ref','btn-neither'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'toggle-btn';
+  });
+  document.getElementById('sq-yes').classList.add('hidden');
+  document.getElementById('sq-no').classList.add('hidden');
+
+  if (formState.had === 'yes') {
+    document.getElementById('btn-yes').classList.add('selected-yes');
+    document.getElementById('sq-yes').classList.remove('hidden');
+    if (formState.initiator === 'he') document.getElementById('btn-he-init').classList.add('selected-he');
+    if (formState.initiator === 'she') document.getElementById('btn-she-init').classList.add('selected-she');
+  } else if (formState.had === 'no') {
+    document.getElementById('btn-no').classList.add('selected-no');
+    document.getElementById('sq-no').classList.remove('hidden');
+    if (formState.refusal === 'he_refused') document.getElementById('btn-he-ref').classList.add('selected-he');
+    if (formState.refusal === 'she_refused') document.getElementById('btn-she-ref').classList.add('selected-she');
+    if (formState.refusal === 'neither') document.getElementById('btn-neither').classList.add('selected-no');
+  }
+}
+
+function selectHad(val) { formState.had = val; formState.initiator = null; formState.refusal = null; applyFormState(); }
+function selectInitiator(val) { formState.initiator = val; applyFormState(); }
+function selectRefusal(val) { formState.refusal = val; applyFormState(); }
+
+function saveEntry() {
+  if (!formState.had) { alert('Please select Yes or No.'); return; }
+  if (formState.had === 'yes' && !formState.initiator) { alert('Please select who initiated.'); return; }
+  if (formState.had === 'no' && !formState.refusal) { alert('Please select what happened.'); return; }
+  const data = getData();
+  if (editDate === null) {
+    // Bulk save
+    bulkSelected.forEach(key => {
+      data[key] = { had: formState.had, initiator: formState.initiator, refusal: formState.refusal };
+    });
+    const count = bulkSelected.size;
+    saveData(data);
+    cancelBulk();
+    closeModal();
+    renderCalendar();
+    // Brief toast
+    showToast(count + ' days saved!');
+  } else {
+    const key = dateKey(editDate.y, editDate.m, editDate.d);
+    data[key] = { had: formState.had, initiator: formState.initiator, refusal: formState.refusal };
+    saveData(data);
+    closeModal();
+    renderCalendar();
+  }
+}
+
+function clearEntry() {
+  const data = getData();
+  const key = dateKey(editDate.y, editDate.m, editDate.d);
+  delete data[key];
+  saveData(data);
+  closeModal();
+  renderCalendar();
+}
+
+function populateStatFilters() {
+  const data = getData();
+  const years = [...new Set(Object.keys(data).map(k => k.split('-')[0]))].sort().reverse();
+  if (!years.length) years.push(String(new Date().getFullYear()));
+  const sel = document.getElementById('stat-year');
+  sel.innerHTML = '';
+  years.forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; sel.appendChild(o); });
+  sel.value = String(currentYear);
+}
+
+let pieCharts = {};
+
+function destroyCharts() {
+  Object.values(pieCharts).forEach(c => c.destroy());
+  pieCharts = {};
+}
+
+function makePie(id, labels, values, colors) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  pieCharts[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff9f6', hoverOffset: 6 }]
+    },
+    options: {
+      cutout: '60%',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.parsed / ctx.dataset.data.reduce((a,b)=>a+b,0)*100)}%)`
+        }
+      }},
+      animation: { animateRotate: true, duration: 700 }
+    }
+  });
+}
+
+function renderStats() {
+  destroyCharts();
+  const data = getData();
+  const year = parseInt(document.getElementById('stat-year').value);
+  const monthVal = document.getElementById('stat-month').value;
+
+  let entries = Object.entries(data).filter(([k]) => k.startsWith(year + '-'));
+  if (monthVal !== 'all') {
+    const m = String(parseInt(monthVal) + 1).padStart(2, '0');
+    entries = entries.filter(([k]) => k.startsWith(`${year}-${m}-`));
+  }
+
+  if (!entries.length) {
+    document.getElementById('stats-content').innerHTML = `<div class="empty-state"><div class="es-icon">📭</div><p>No data for this period yet.<br>Click on calendar days to log entries.</p></div>`;
+    return;
+  }
+
+  const total = entries.length;
+  const yesEntries = entries.filter(([,v]) => v.had === 'yes');
+  const noEntries = entries.filter(([,v]) => v.had === 'no');
+  const heInit = yesEntries.filter(([,v]) => v.initiator === 'he').length;
+  const sheInit = yesEntries.filter(([,v]) => v.initiator === 'she').length;
+  const heRef = noEntries.filter(([,v]) => v.refusal === 'he_refused').length;
+  const sheRef = noEntries.filter(([,v]) => v.refusal === 'she_refused').length;
+  const neither = noEntries.filter(([,v]) => v.refusal === 'neither').length;
+
+  const pct = (n, d) => d ? Math.round(n / d * 100) : 0;
+
+  let monthBreakdown = '';
+  if (monthVal === 'all') {
+    const monthMap = {};
+    entries.forEach(([k, v]) => {
+      const mo = parseInt(k.split('-')[1]) - 1;
+      if (!monthMap[mo]) monthMap[mo] = { yes: 0, no: 0 };
+      if (v.had === 'yes') monthMap[mo].yes++; else monthMap[mo].no++;
+    });
+    const chips = Object.entries(monthMap).sort((a,b) => a[0]-b[0]).map(([mo, c]) =>
+      `<div class="month-chip"><div class="mc-month">${MONTHS[mo]}</div><div class="mc-yes">💕 ${c.yes} intimate</div><div class="mc-no">💔 ${c.no} missed</div></div>`
+    ).join('');
+    monthBreakdown = `<div class="detail-section"><h3 style="color:var(--rose-dark)">Monthly Breakdown</h3><div class="monthly-list">${chips}</div></div>`;
+  }
+
+  // Pie chart legend helpers
+  const overallLegend = `
+    <div class="legend-item"><div class="legend-dot" style="background:#d4875a"></div>💕 Intimate Days<span>${yesEntries.length} (${pct(yesEntries.length,total)}%)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7a9caa"></div>💔 Missed Days<span>${noEntries.length} (${pct(noEntries.length,total)}%)</span></div>`;
+
+  const initiatorLegend = yesEntries.length ? `
+    <div class="legend-item"><div class="legend-dot" style="background:#5a7acc"></div>👨 He initiated<span>${heInit} (${pct(heInit,yesEntries.length)}%)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#cc5a88"></div>👩 She initiated<span>${sheInit} (${pct(sheInit,yesEntries.length)}%)</span></div>` : '';
+
+  const refusalLegend = noEntries.length ? `
+    <div class="legend-item"><div class="legend-dot" style="background:#88aadd"></div>👨 He→She refused<span>${heRef} (${pct(heRef,noEntries.length)}%)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#dd88aa"></div>👩 She→He refused<span>${sheRef} (${pct(sheRef,noEntries.length)}%)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#bbb"></div>💤 Neither<span>${neither} (${pct(neither,noEntries.length)}%)</span></div>` : '';
+
+  document.getElementById('stats-content').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" style="color:var(--rose)">${total}</div><div class="stat-label">Days Logged</div></div>
+      <div class="stat-card yes-card"><div class="stat-num">${yesEntries.length}</div><div class="stat-label">Intimate Days</div></div>
+      <div class="stat-card no-card"><div class="stat-num">${noEntries.length}</div><div class="stat-label">Missed Days</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--rose-dark)">${pct(yesEntries.length, total)}%</div><div class="stat-label">Intimacy Rate</div></div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h4>Overall — Yes vs No</h4>
+        <div class="chart-wrap"><canvas id="pie-overall"></canvas></div>
+        <div class="chart-legend">${overallLegend}</div>
+      </div>
+      ${yesEntries.length ? `
+      <div class="chart-card">
+        <h4>💕 Who Initiated (Intimate Days)</h4>
+        <div class="chart-wrap"><canvas id="pie-initiator"></canvas></div>
+        <div class="chart-legend">${initiatorLegend}</div>
+      </div>` : ''}
+      ${noEntries.length ? `
+      <div class="chart-card">
+        <h4>💔 What Happened (Missed Days)</h4>
+        <div class="chart-wrap"><canvas id="pie-refusal"></canvas></div>
+        <div class="chart-legend">${refusalLegend}</div>
+      </div>` : ''}
+    </div>
+
+    <div class="detail-section">
+      <h3 class="yes-title">💕 Intimate Days — ${yesEntries.length} Total</h3>
+      ${yesEntries.length ? `
+      <div class="detail-row">
+        <span class="dr-label">👨 He initiated</span>
+        <div class="bar-wrap"><div class="bar-fill bar-he" style="width:${pct(heInit, yesEntries.length)}%"></div></div>
+        <span class="dr-val" style="color:#5a7acc">${heInit}</span>
+        <span class="dr-pct">${pct(heInit, yesEntries.length)}%</span>
+      </div>
+      <div class="detail-row">
+        <span class="dr-label">👩 She initiated</span>
+        <div class="bar-wrap"><div class="bar-fill bar-she" style="width:${pct(sheInit, yesEntries.length)}%"></div></div>
+        <span class="dr-val" style="color:#cc5a88">${sheInit}</span>
+        <span class="dr-pct">${pct(sheInit, yesEntries.length)}%</span>
+      </div>` : '<p style="color:var(--muted);font-size:0.9rem">No intimate days logged yet.</p>'}
+    </div>
+
+    <div class="detail-section">
+      <h3 class="no-title">💔 Missed Days — ${noEntries.length} Total</h3>
+      ${noEntries.length ? `
+      <div class="detail-row">
+        <span class="dr-label">👨 He initiated → She refused</span>
+        <div class="bar-wrap"><div class="bar-fill bar-he-ref" style="width:${pct(heRef, noEntries.length)}%"></div></div>
+        <span class="dr-val" style="color:#88aadd">${heRef}</span>
+        <span class="dr-pct">${pct(heRef, noEntries.length)}%</span>
+      </div>
+      <div class="detail-row">
+        <span class="dr-label">👩 She initiated → He refused</span>
+        <div class="bar-wrap"><div class="bar-fill bar-she-ref" style="width:${pct(sheRef, noEntries.length)}%"></div></div>
+        <span class="dr-val" style="color:#dd88aa">${sheRef}</span>
+        <span class="dr-pct">${pct(sheRef, noEntries.length)}%</span>
+      </div>
+      <div class="detail-row">
+        <span class="dr-label">💤 Neither initiated</span>
+        <div class="bar-wrap"><div class="bar-fill" style="background:#bbb;width:${pct(neither, noEntries.length)}%"></div></div>
+        <span class="dr-val" style="color:#888">${neither}</span>
+        <span class="dr-pct">${pct(neither, noEntries.length)}%</span>
+      </div>` : '<p style="color:var(--muted);font-size:0.9rem">No missed days logged yet.</p>'}
+    </div>
+    ${monthBreakdown}
+  `;
+
+  // Draw pie charts after DOM update
+  requestAnimationFrame(() => {
+    makePie('pie-overall', ['Intimate', 'Missed'], [yesEntries.length, noEntries.length], ['#d4875a', '#7a9caa']);
+    if (yesEntries.length) makePie('pie-initiator', ['He initiated', 'She initiated'], [heInit, sheInit], ['#5a7acc', '#cc5a88']);
+    if (noEntries.length) makePie('pie-refusal', ['He→She refused', 'She→He refused', 'Neither'], [heRef, sheRef, neither], ['#88aadd', '#dd88aa', '#bbbbbb']);
+  });
+}
+
+// BULK MODE FUNCTIONS
+function toggleBulkMode() {
+  bulkMode = !bulkMode;
+  bulkSelected.clear();
+  const btn = document.getElementById('bulk-mode-btn');
+  const bar = document.getElementById('bulk-bar');
+  if (bulkMode) {
+    btn.classList.add('on');
+    btn.textContent = '✕ Exit Multi-Select';
+    bar.classList.add('active');
+    document.getElementById('bulk-count').textContent = '0';
+  } else {
+    btn.classList.remove('on');
+    btn.textContent = '✏️ Multi-Select';
+    bar.classList.remove('active');
+  }
+  renderCalendar();
+}
+
+function cancelBulk() {
+  bulkMode = false;
+  bulkSelected.clear();
+  document.getElementById('bulk-mode-btn').classList.remove('on');
+  document.getElementById('bulk-mode-btn').textContent = '✏️ Multi-Select';
+  document.getElementById('bulk-bar').classList.remove('active');
+  renderCalendar();
+}
+
+function openBulkModal() {
+  if (bulkSelected.size === 0) { alert('Please select at least one day.'); return; }
+  editDate = null; // signals bulk mode
+  formState = { had: null, initiator: null, refusal: null };
+  const sorted = [...bulkSelected].sort();
+  document.getElementById('modal-title').textContent = 'Bulk Log — ' + bulkSelected.size + ' Days';
+  document.getElementById('modal-date-label').textContent = 'Same entry will be saved for all selected days';
+  applyFormState();
+  document.getElementById('modal').classList.add('open');
+}
+
+// Close modal on overlay click
+document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+renderCalendar();
+</script>
+<div class="toast" id="toast"></div>
+</body>
+</html>
